@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小说章节导航</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            color: #333;
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        /* 侧边栏样式 */
+        .sidebar {
+            width: 280px;
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px 0;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            position: fixed;
+            height: 100vh;
+            z-index: 1000;
+            transition: transform 0.3s ease;
+        }
+        
+        .sidebar-header {
+            padding: 0 20px 20px 20px;
+            border-bottom: 1px solid #455a64;
+            margin-bottom: 20px;
+        }
+        
+        .sidebar-header h1 {
+            margin: 0;
+            font-size: 24px;
+            color: #ecf0f1;
+        }
+        
+        .sidebar-header p {
+            margin: 5px 0 0 0;
+            font-size: 14px;
+            color: #bdc3c7;
+        }
+        
+        .chapter-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .chapter-list li {
+            padding: 0;
+            margin: 0;
+            border-bottom: 1px solid #455a64;
+        }
+        
+        .chapter-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .chapter-list a {
+            display: block;
+            padding: 15px 20px;
+            color: #ecf0f1;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+        
+        .chapter-list a:hover, .chapter-list a.active {
+            background-color: #34495e;
+            color: #3498db;
+            padding-left: 25px;
+        }
+        
+        .chapter-list .chapter-number {
+            font-weight: bold;
+            margin-right: 10px;
+            color: #3498db;
+        }
+        
+        /* 主内容区域样式 */
+        .main-content {
+            flex: 1;
+            margin-left: 280px;
+            padding: 30px;
+            transition: margin-left 0.3s ease;
+        }
+        
+        .chapter {
+            background-color: white;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: 5px;
+            margin-bottom: 30px;
+            display: none;
+        }
+        
+        .chapter.active {
+            display: block;
+        }
+        
+        .chapter-title {
+            margin-top: 0;
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        /* 移动设备适配 */
+        .sidebar-toggle {
+            display: none;
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 8px 12px;
+            cursor: pointer;
+            z-index: 1001;
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .sidebar-toggle {
+                display: block;
+            }
+        }
+        
+        /* 章节内容样式 */
+        .chapter p {
+            line-height: 1.8;
+            margin-bottom: 15px;
+        }
+        
+        .chapter-meta {
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        
+        /* 导航按钮 */
+        .chapter-navigation {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ecf0f1;
+        }
+        
+        .nav-button {
+            padding: 10px 15px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        
+        .nav-button:hover {
+            background-color: #2980b9;
+        }
+        
+        .nav-button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        /* 回到顶部按钮 */
+        .back-to-top {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.3s, background-color 0.2s;
+        }
+        
+        .back-to-top.visible {
+            opacity: 1;
+        }
+        
+        .back-to-top:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <!-- 移动设备上的侧边栏切换按钮 -->
+    <button class="sidebar-toggle" id="sidebarToggle">☰ 目录</button>
+    
+    <!-- 侧边栏 -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h1>小说目录</h1>
+            <p>点击章节标题跳转</p>
+        </div>
+        
+        <ul class="chapter-list" id="chapterList">
+            <li><a href="#chapter1" class="chapter-link" data-chapter="chapter1"><span class="chapter-number">第一章</span>恒河水的穿越</a></li>
+            <li><a href="#chapter2" class="chapter-link" data-chapter="chapter2"><span class="chapter-number">第二章</span>孟买的初体验</a></li>
+            <li><a href="#chapter3" class="chapter-link" data-chapter="chapter3"><span class="chapter-number">第三章</span>火车站的相遇</a></li>
+            <li><a href="#chapter4" class="chapter-link" data-chapter="chapter4"><span class="chapter-number">第四章</span>婆罗门的身份</a></li>
+            <li><a href="#chapter5" class="chapter-link" data-chapter="chapter5"><span class="chapter-number">第五章</span>印度的生活</a></li>
+            <li><a href="#chapter6" class="chapter-link" data-chapter="chapter6"><span class="chapter-number">第六章</span>意外的发现</a></li>
+            <li><a href="#chapter7" class="chapter-link" data-chapter="chapter7"><span class="chapter-number">第七章</span>神秘的来客</a></li>
+            <li><a href="#chapter8" class="chapter-link" data-chapter="chapter8"><span class="chapter-number">第八章</span>宗教冲突</a></li>
+            <li><a href="#chapter9" class="chapter-link" data-chapter="chapter9"><span class="chapter-number">第九章</span>商机与挑战</a></li>
+            <li><a href="#chapter10" class="chapter-link" data-chapter="chapter10"><span class="chapter-number">第十章</span>新的旅程</a></li>
+        </ul>
+    </div>
+    
+    <!-- 主内容区域 -->
+    <div class="main-content" id="mainContent">
+        <div id="chapter1" class="chapter active">
+            <h2 class="chapter-title">第一章：恒河水的穿越</h2>
+            <div class="chapter-meta">发布时间：2023年5月15日 | 阅读时间：约15分钟</div>
+            
+            <p>噗~！嗞</p>
+            <p>尖利的声音慢慢拉长，罗恩扭曲的脸庞也缓缓放松。</p>
+            <p>该死，这种松弛感真的让人又爱又恨。</p>
+            <p>蹲坑本是一件幸福的事，但如果频率太高就成了痛苦。</p>
+            <p>已经三天了，罗恩不知道在卫生间进出了多少回。</p>
+            
+            <p>这都怪老仆人阿比求来的那杯圣水，那杯从瓦那纳西千里迢迢送到孟买的圣水。</p>
+            <p>是的，圣水，来自恒河原汁原味的圣水。</p>
+            <p>青天在上，罗恩绝不会拿自己的命，去赌恒河水的圣洁。</p>
+            
+            <!-- 章节内容省略 -->
+            <p>印度，真他妈是一个神奇的国度。</p>
+            
+            <div class="chapter-navigation">
+                <button class="nav-button prev-chapter" disabled>上一章</button>
+                <button class="nav-button next-chapter" data-target="chapter2">下一章</button>
+            </div>
+        </div>
+        
+        <div id="chapter2" class="chapter">
+            <h2 class="chapter-title">第二章：孟买的初体验</h2>
+            <div class="chapter-meta">发布时间：2023年5月22日 | 阅读时间：约18分钟</div>
+            
+            <p>罗恩坐在阿南德的三轮车上，目不转睛地望着窗外的孟买城市风光。</p>
+            <p>这座印度最大的城市，繁华与贫穷并存，现代与传统交织，处处充满着矛盾与活力。</p>
+            <p>车子穿过拥挤的街道，周围到处是向三轮车兜售各种商品的小贩。</p>
+            <p>"先生，要不要买纪念品？"一个瘦小的印度少年跑到车窗边，用蹩脚的英语问道。</p>
+            <p>"不，谢谢。"罗恩摇了摇头，然后用流利的印地语补充，"我不是游客。"</p>
+            
+            <!-- 章节内容省略 -->
+            <p>当车子停在维多利亚火车站前，罗恩深吸一口气，准备迎接妮娅的到来。</p>
+            
+            <div class="chapter-navigation">
+                <button class="nav-button prev-chapter" data-target="chapter1">上一章</button>
+                <button class="nav-button next-chapter" data-target="chapter3">下一章</button>
+            </div>
+        </div>
+        
+        <div id="chapter3" class="chapter">
+            <h2 class="chapter-title">第三章：火车站的相遇</h2>
+            <div class="chapter-meta">发布时间：2023年5月29日 | 阅读时间：约16分钟</div>
+            
+            <p>维多利亚火车站——现在正式名称是贾特拉帕蒂·希瓦吉·特米纳斯——是一座哥特式建筑，高耸的尖顶和复杂的装饰让它看起来更像一座教堂而非车站。</p>
+            <p>罗恩站在拥挤的站台上，不安地踱着步。南下的列车应该已经到站了，但他完全不记得妮娅长什么样子。</p>
+            
+            <!-- 章节内容省略 -->
+            
+            <div class="chapter-navigation">
+                <button class="nav-button prev-chapter" data-target="chapter2">上一章</button>
+                <button class="nav-button next-chapter" data-target="chapter4">下一章</button>
+            </div>
+        </div>
+        
+        <!-- 其他章节可以按需添加 -->
+        <div id="chapter4" class="chapter">
+            <h2 class="chapter-title">第四章：婆罗门的身份</h2>
+            <div class="chapter-meta">发布时间：2023年6月5日 | 阅读时间：约20分钟</div>
+            
+            <p>【章节内容待添加】</p>
+            
+            <div class="chapter-navigation">
+                <button class="nav-button prev-chapter" data-target="chapter3">上一章</button>
+                <button class="nav-button next-chapter" data-target="chapter5">下一章</button>
+            </div>
+        </div>
+        
+        <div id="chapter5" class="chapter">
+            <h2 class="chapter-title">第五章：印度的生活</h2>
+            <div class="chapter-meta">发布时间：2023年6月12日 | 阅读时间：约17分钟</div>
+            
+            <p>【章节内容待添加】</p>
+            
+            <div class="chapter-navigation">
+                <button class="nav-button prev-chapter" data-target="chapter4">上一章</button>
+                <button class="nav-button next-chapter" data-target="chapter6">下一章</button>
+            </div>
+        </div>
+        
+        <!-- 回到顶部按钮 -->
+        <button class="back-to-top" id="backToTop">↑</button>
+    </div>
+    
+    <script>
+        // 获取DOM元素
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebar = document.getElementById('sidebar');
+        const chapterLinks = document.querySelectorAll('.chapter-link');
+        const chapters = document.querySelectorAll('.chapter');
+        const prevButtons = document.querySelectorAll('.prev-chapter');
+        const nextButtons = document.querySelectorAll('.next-chapter');
+        const backToTop = document.getElementById('backToTop');
+        
+        // 侧边栏切换功能
+        sidebarToggle.addEventListener('click', function() {
+            sidebar.classList.toggle('open');
+        });
+        
+        // 点击章节链接
+        chapterLinks.forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                const targetChapterId = this.getAttribute('data-chapter');
+                
+                // 隐藏所有章节
+                chapters.forEach(chapter => {
+                    chapter.classList.remove('active');
+                });
+                
+                // 显示目标章节
+                document.getElementById(targetChapterId).classList.add('active');
+                
+                // 更新活动链接样式
+                chapterLinks.forEach(link => {
+                    link.classList.remove('active');
+                });
+                this.classList.add('active');
+                
+                // 移动设备上点击后关闭侧边栏
+                if (window.innerWidth <= 768) {
+                    sidebar.classList.remove('open');
+                }
+                
+                // 滚动到顶部
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        });
+        
+        // 上一章/下一章按钮
+        prevButtons.forEach(button => {
+            if (!button.hasAttribute('disabled')) {
+                button.addEventListener('click', function() {
+                    const targetChapterId = this.getAttribute('data-target');
+                    
+                    // 找到对应的链接并触发点击
+                    document.querySelector(`.chapter-link[data-chapter="${targetChapterId}"]`).click();
+                });
+            }
+        });
+        
+        nextButtons.forEach(button => {
+            if (!button.hasAttribute('disabled')) {
+                button.addEventListener('click', function() {
+                    const targetChapterId = this.getAttribute('data-target');
+                    
+                    // 找到对应的链接并触发点击
+                    document.querySelector(`.chapter-link[data-chapter="${targetChapterId}"]`).click();
+                });
+            }
+        });
+        
+        // 回到顶部按钮
+        window.addEventListener('scroll', function() {
+            if (window.pageYOffset > 300) {
+                backToTop.classList.add('visible');
+            } else {
+                backToTop.classList.remove('visible');
+            }
+        });
+        
+        backToTop.addEventListener('click', function() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+        
+        // 初始化：标记当前活动章节
+        function initActivePage() {
+            const hash = window.location.hash || '#chapter1';
+            const targetChapterId = hash.substring(1);
+            
+            // 隐藏所有章节
+            chapters.forEach(chapter => {
+                chapter.classList.remove('active');
+            });
+            
+            // 显示目标章节
+            const targetChapter = document.getElementById(targetChapterId);
+            if (targetChapter) {
+                targetChapter.classList.add('active');
+                
+                // 更新活动链接样式
+                chapterLinks.forEach(link => {
+                    link.classList.remove('active');
+                });
+                document.querySelector(`.chapter-link[data-chapter="${targetChapterId}"]`).classList.add('active');
+            } else {
+                // 默认显示第一章
+                document.getElementById('chapter1').classList.add('active');
+                document.querySelector('.chapter-link[data-chapter="chapter1"]').classList.add('active');
+            }
+        }
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', initActivePage);
+    </script>
+</body>
+</html>
